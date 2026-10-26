@@ -51,7 +51,7 @@ void makeFixture(Module& module, bool main = false, bool exportHelper = true) {
     main ? static_cast<Expression*>(builder.makeConst(1))
          : builder.makeGlobalGet("table_base", Type::i32));
   for (Name name : {Name("target"), Name("other"), Name("target")}) {
-    segment->data.push_back(builder.makeRefFunc(name, type));
+    segment->data.push_back(builder.makeRefFunc(name));
   }
   module.addElementSegment(std::move(segment));
   module.addExport(builder.makeExport(

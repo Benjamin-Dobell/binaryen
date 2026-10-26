@@ -100,7 +100,7 @@ struct BreakaLazyTable : public Pass {
     for (auto& function : wasm.functions) {
       if (function->imported() && function->module == "env" &&
           function->base == externalName) {
-        require(function->type.getSignature() == signature,
+        require(function->getSig() == signature,
                 std::string("wrong import signature: ") + externalName);
         return function->name;
       }
@@ -109,7 +109,7 @@ struct BreakaLazyTable : public Pass {
     function->name = Names::getValidFunctionName(wasm, externalName);
     function->module = "env";
     function->base = externalName;
-    function->type = HeapType(signature);
+    function->type = Type(signature, NonNullable);
     return wasm.addFunction(std::move(function))->name;
   }
 
@@ -119,7 +119,7 @@ struct BreakaLazyTable : public Pass {
             "main module requires the compiled __breaka_lazy_ensure export");
     auto* function = wasm.getFunction(*exported->getInternalName());
     require(!function->imported() &&
-              function->type.getSignature() ==
+              function->getSig() ==
                 Signature(Type({Type::i32, Type::i32}), Type::i32),
             "compiled ensure helper has the wrong signature or is imported");
     OriginalCodeValidator validator(wasm.tables[0]->name);
@@ -272,7 +272,7 @@ struct BreakaLazyTable : public Pass {
       thunk->noFullInline = true;
       thunk->noPartialInline = true;
       wasm.addFunction(std::move(thunk));
-      elements->data.push_back(builder.makeRefFunc(thunkName, thunkType));
+      elements->data.push_back(builder.makeRefFunc(thunkName));
 
       auto exports = json::Value::Ref(new json::Value());
       exports->setObject();
