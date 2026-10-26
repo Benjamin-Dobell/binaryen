@@ -2731,7 +2731,10 @@ public:
 class DylinkSection {
 public:
   bool isLegacy = false;
-  Index memorySize, memoryAlignment, tableSize, tableAlignment;
+  // Constructed IR has explicit memory-info fields. The binary reader clears
+  // this until it encounters the corresponding dylink.0 subsection.
+  bool hasMemoryInfo = true;
+  Index memorySize = 0, memoryAlignment = 0, tableSize = 0, tableAlignment = 0;
   std::vector<Name> neededDynlibs;
   std::vector<char> tail;
 };

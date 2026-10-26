@@ -26,6 +26,7 @@ Pass* createAbstractTypeRefiningPass();
 Pass* createAlignmentLoweringPass();
 Pass* createAsyncifyPass();
 Pass* createAvoidReinterpretsPass();
+Pass* createBreakaLazyTablePass();
 Pass* createCoalesceLocalsPass();
 Pass* createCoalesceLocalsWithLearningPass();
 Pass* createCodeFoldingPass();

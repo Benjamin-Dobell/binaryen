@@ -17,6 +17,9 @@
 #include "support/json.h"
 #include "support/string.h"
 
+#include <locale>
+#include <sstream>
+
 namespace json {
 
 void Value::stringify(std::ostream& os, bool pretty, int indent) {
@@ -72,7 +75,10 @@ void Value::stringify(std::ostream& os, bool pretty, int indent) {
           os << ',';
         }
         maybeNewline();
-        os << "\"" << key << "\":";
+        Value name;
+        name.setString(key);
+        name.stringify(os, pretty, indent);
+        os << ':';
         if (pretty) {
           os << ' ';
         }
@@ -83,9 +89,21 @@ void Value::stringify(std::ostream& os, bool pretty, int indent) {
       os << '}';
       return;
     }
-    case Number:
-      os << getNumber();
+    case Number: {
+      // Compiler metadata needs exact numbers, independent of caller stream flags.
+      // JSON has no nonfinite numeric literals; serialize those as null.
+      const auto value = getNumber();
+      if (!std::isfinite(value)) {
+        os << "null";
+      } else {
+        std::ostringstream number;
+        number.imbue(std::locale::classic());
+        number << std::setprecision(std::numeric_limits<double>::max_digits10)
+               << value;
+        os << number.str();
+      }
       return;
+    }
     case Null:
       os << "null";
       return;

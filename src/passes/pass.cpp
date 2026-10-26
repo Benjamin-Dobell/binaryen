@@ -267,6 +267,9 @@ void PassRegistry::registerPasses() {
   registerPass("instrument-branch-hints",
                "instrument branch hints so we can see which guessed right",
                createInstrumentBranchHintsPass);
+  registerPass("breaka-lazy-table",
+               "populate dynamic function tables on demand through the Breaka ABI",
+               createBreakaLazyTablePass);
   registerPass(
     "instrument-locals",
     "instrument the build with code to intercept all loads and stores",

@@ -5792,6 +5792,9 @@ void WasmBinaryReader::readFeatures(size_t sectionPos, size_t payloadLen) {
 }
 
 void WasmBinaryReader::readDylink(size_t payloadLen) {
+  if (wasm.dylinkSection) {
+    throwError("duplicate dynamic linking section");
+  }
   wasm.dylinkSection = std::make_unique<DylinkSection>();
 
   auto sectionPos = pos;
@@ -5816,10 +5819,16 @@ void WasmBinaryReader::readDylink0(size_t payloadLen) {
   auto sectionPos = pos;
   uint32_t lastType = 0;
 
+  if (wasm.dylinkSection) {
+    throwError("duplicate dynamic linking section");
+  }
   wasm.dylinkSection = std::make_unique<DylinkSection>();
+  wasm.dylinkSection->hasMemoryInfo = false;
   while (pos < sectionPos + payloadLen) {
     auto oldPos = pos;
-    auto dylinkType = getU32LEB();
+    // The dynamic-linking ABI encodes a subsection type as uint8, followed by
+    // a varuint32 payload length (as in the names custom section).
+    uint32_t dylinkType = getInt8();
     if (lastType && dylinkType <= lastType) {
       std::cerr << "warning: out-of-order dylink.0 subsection: " << dylinkType
                 << std::endl;
@@ -5827,7 +5836,15 @@ void WasmBinaryReader::readDylink0(size_t payloadLen) {
     lastType = dylinkType;
     auto subsectionSize = getU32LEB();
     auto subsectionPos = pos;
+    if (subsectionPos > sectionPos + payloadLen ||
+        subsectionSize > sectionPos + payloadLen - subsectionPos) {
+      throwError("dylink.0 subsection exceeds its section");
+    }
     if (dylinkType == BinaryConsts::CustomSections::Subsection::DylinkMemInfo) {
+      if (wasm.dylinkSection->hasMemoryInfo) {
+        throwError("duplicate dylink.0 memory info");
+      }
+      wasm.dylinkSection->hasMemoryInfo = true;
       wasm.dylinkSection->memorySize = getU32LEB();
       wasm.dylinkSection->memoryAlignment = getU32LEB();
       wasm.dylinkSection->tableSize = getU32LEB();
@@ -5839,13 +5856,12 @@ void WasmBinaryReader::readDylink0(size_t payloadLen) {
         wasm.dylinkSection->neededDynlibs.push_back(getInlineString());
       }
     } else {
-      // Unknown subsection.  Stop parsing now and store the rest of
-      // the section verbatim.
+      // Preserve unknown subsections verbatim, but continue scanning known
+      // subsection headers so a later duplicate memory-info is not hidden.
       pos = oldPos;
-      size_t remaining = (sectionPos + payloadLen) - pos;
-      auto tail = getByteView(remaining);
-      wasm.dylinkSection->tail = {tail.begin(), tail.end()};
-      break;
+      auto tail = getByteView(subsectionPos + subsectionSize - oldPos);
+      wasm.dylinkSection->tail.insert(
+        wasm.dylinkSection->tail.end(), tail.begin(), tail.end());
     }
     if (pos != subsectionPos + subsectionSize) {
       throwError("bad dylink.0 subsection position change");
