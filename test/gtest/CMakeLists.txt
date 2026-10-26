@@ -7,6 +7,7 @@ endif()
 
 set(unittest_SOURCES
   arena.cpp
+  breaka-lazy-table.cpp
   cast-check.cpp
   cfg.cpp
   dfa_minimization.cpp

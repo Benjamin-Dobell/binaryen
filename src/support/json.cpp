@@ -17,6 +17,9 @@
 #include "support/json.h"
 #include "support/string.h"
 
+#include <locale>
+#include <sstream>
+
 namespace json {
 
 void Value::stringify(std::ostream& os, bool pretty) {
@@ -40,8 +43,49 @@ void Value::stringify(std::ostream& os, bool pretty) {
       item->stringify(os, pretty);
     }
     os << ']';
+  } else if (isObject()) {
+    // ObjectStorage is unordered. Keep serialized compiler metadata stable
+    // across runs and platforms by sorting the keys by their string contents.
+    std::vector<IString> keys;
+    keys.reserve(obj->size());
+    for (auto& item : *obj) {
+      keys.push_back(item.first);
+    }
+    std::sort(keys.begin(), keys.end());
+    os << '{';
+    auto first = true;
+    for (auto key : keys) {
+      if (first) {
+        first = false;
+      } else {
+        os << ',';
+      }
+      Value name;
+      name.setString(key);
+      name.stringify(os, pretty);
+      os << ':';
+      (*obj)[key]->stringify(os, pretty);
+    }
+    os << '}';
+  } else if (isNumber()) {
+    // JSON has no nonfinite numeric literals. Match JSON.stringify by emitting
+    // null for those values. A separate classic-locale stream also prevents a
+    // caller's locale, precision, or float flags from changing valid JSON.
+    if (!std::isfinite(num)) {
+      os << "null";
+    } else {
+      std::ostringstream number;
+      number.imbue(std::locale::classic());
+      number << std::setprecision(std::numeric_limits<double>::max_digits10)
+             << num;
+      os << number.str();
+    }
+  } else if (isBool()) {
+    os << (boo ? "true" : "false");
+  } else if (isNull()) {
+    os << "null";
   } else {
-    WASM_UNREACHABLE("TODO: stringify all of JSON");
+    WASM_UNREACHABLE("invalid JSON value type");
   }
 }
 
